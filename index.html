@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="割り勘">
+  <title>割り勘アプリ</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #273449;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --accent: #3b82f6;
+      --accent-dark: #1d4ed8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --radius: 12px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── レイアウト ── */
+    #app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
+
+    .page { display: none; flex-direction: column; min-height: 100vh; }
+    .page.active { display: flex; }
+
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.875rem 1rem;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .back-btn {
+      background: none; border: none; color: var(--accent);
+      font-size: 1rem; cursor: pointer; padding: 0.25rem;
+      display: flex; align-items: center; gap: 0.25rem;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; }
+    .header-action {
+      background: none; border: none; color: var(--accent);
+      font-size: 0.9rem; cursor: pointer; padding: 0.25rem 0.5rem;
+    }
+
+    main { flex: 1; padding: 1rem; padding-bottom: 5rem; }
+
+    /* ── ボタン ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+      padding: 0.75rem 1.25rem; border-radius: var(--radius);
+      font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none;
+      transition: opacity 0.15s; width: 100%;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger  { background: var(--red); color: #fff; }
+    .btn-ghost   { background: var(--surface2); color: var(--text); }
+
+    /* FABボタン */
+    .fab {
+      position: fixed; bottom: 1.5rem; right: 50%;
+      transform: translateX(calc(50% - 1.5rem + min(50vw - 240px, 0px)));
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--accent); color: #fff; border: none;
+      font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 16px rgba(59,130,246,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 40;
+    }
+    .fab:active { opacity: 0.8; }
+
+    /* ── カード ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .card-row { display: flex; justify-content: space-between; align-items: center; }
+
+    /* ── イベント一覧 ── */
+    .event-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      margin-bottom: 0.75rem; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .event-item:active { border-color: var(--accent); }
+    .event-name { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .event-meta { font-size: 0.8rem; color: var(--text2); display: flex; gap: 1rem; }
+
+    .empty-state {
+      text-align: center; color: var(--text3);
+      padding: 4rem 1rem; font-size: 0.95rem; line-height: 2;
+    }
+
+    /* ── タブ ── */
+    .tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      margin: -1rem -1rem 1rem;
+      background: var(--surface);
+      position: sticky; top: 57px; z-index: 40;
+    }
+    .tab-btn {
+      flex: 1; padding: 0.875rem; background: none; border: none;
+      color: var(--text2); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── 支出リスト ── */
+    .expense-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.875rem;
+      margin-bottom: 0.6rem;
+    }
+    .expense-desc { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.3rem; }
+    .expense-meta { font-size: 0.8rem; color: var(--text2); margin-bottom: 0.5rem; }
+    .expense-amount { font-size: 1.15rem; font-weight: 700; color: var(--yellow); }
+    .expense-split { font-size: 0.75rem; color: var(--text3); margin-top: 0.3rem; }
+    .delete-btn {
+      background: none; border: none; color: var(--text3);
+      cursor: pointer; font-size: 1rem; padding: 0.25rem;
+    }
+
+    /* ── メンバーチップ ── */
+    .member-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+    .chip {
+      padding: 0.35rem 0.75rem; border-radius: 9999px;
+      font-size: 0.8rem; font-weight: 600;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text2); cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 0.3rem;
+    }
+    .chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .chip .remove { font-size: 0.85rem; opacity: 0.7; }
+
+    /* ── 精算 ── */
+    .balance-list { margin-bottom: 1.5rem; }
+    .balance-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.75rem 0; border-bottom: 1px solid var(--border);
+    }
+    .balance-item:last-child { border-bottom: none; }
+    .balance-name { font-weight: 600; }
+    .balance-amount { font-weight: 700; }
+    .balance-pos { color: var(--green); }
+    .balance-neg { color: var(--red); }
+    .balance-zero { color: var(--text3); }
+
+    .transfer-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.75rem;
+    }
+    .transfer-from { font-weight: 700; color: var(--red); }
+    .transfer-to   { font-weight: 700; color: var(--green); }
+    .transfer-arrow { color: var(--text3); font-size: 1.2rem; }
+    .transfer-amount { margin-left: auto; font-weight: 700; font-size: 1.05rem; color: var(--yellow); }
+
+    .section-title {
+      font-size: 0.8rem; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── モーダル ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border-radius: 20px 20px 0 0;
+      padding: 1.5rem; width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+    /* ── フォーム ── */
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; color: var(--text2); margin-bottom: 0.4rem; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 0.75rem; border-radius: 8px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); font-size: 1rem;
+      -webkit-appearance: none;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    select option { background: var(--surface); }
+
+    .form-row { display: flex; gap: 0.75rem; }
+    .form-row .form-group { flex: 1; }
+
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ── メンバー追加 ── */
+    .member-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .member-input-row input { flex: 1; }
+    .member-input-row button {
+      padding: 0.75rem 1rem; border-radius: 8px;
+      background: var(--accent); color: #fff; border: none;
+      font-size: 1rem; cursor: pointer;
+    }
+
+    /* ── トースト ── */
+    .toast {
+      position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); color: var(--text);
+      padding: 0.65rem 1.25rem; border-radius: 9999px;
+      font-size: 0.85rem; font-weight: 600;
+      z-index: 200; opacity: 0; transition: opacity 0.2s;
+      white-space: nowrap; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── 合計バッジ ── */
+    .total-badge {
+      background: var(--surface2); border-radius: var(--radius);
+      padding: 0.75rem 1rem; margin-bottom: 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .total-label { font-size: 0.85rem; color: var(--text2); }
+    .total-value { font-size: 1.2rem; font-weight: 700; color: var(--yellow); }
+
+    /* スクロールバー非表示 */
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ページ1: イベント一覧 -->
+  <div id="page-list" class="page active">
+    <header>
+      <h1>💴 割り勘</h1>
+    </header>
+    <main>
+      <div id="event-list"></div>
+    </main>
+    <button class="fab" onclick="openNewEventModal()">＋</button>
+  </div>
+
+  <!-- ページ2: イベント詳細 -->
+  <div id="page-detail" class="page">
+    <header>
+      <button class="back-btn" onclick="showList()">‹ 戻る</button>
+      <h1 id="detail-title">イベント</h1>
+      <button class="header-action" onclick="confirmDeleteEvent()">削除</button>
+    </header>
+    <main>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-expenses" onclick="switchTab('expenses')">支出</button>
+        <button class="tab-btn" id="tab-settlement" onclick="switchTab('settlement')">精算</button>
+      </div>
+
+      <!-- 支出タブ -->
+      <div id="tab-content-expenses">
+        <div id="member-area" class="member-chips"></div>
+        <div id="total-area"></div>
+        <div id="expense-list"></div>
+      </div>
+
+      <!-- 精算タブ -->
+      <div id="tab-content-settlement" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+          <p class="section-title" style="margin-bottom:0.5rem">立替状況（プラス：受け取り / マイナス：支払い）</p>
+          <div id="balance-list" class="balance-list"></div>
+        </div>
+        <p class="section-title">支払い一覧</p>
+        <div id="transfer-list"></div>
+      </div>
+    </main>
+    <button class="fab" id="add-expense-fab" onclick="openExpenseModal()">＋</button>
+  </div>
+
+  <!-- モーダル: 新規イベント -->
+  <div id="modal-new-event" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-event')">
+    <div class="modal">
+      <p class="modal-title">新しいイベント</p>
+      <div class="form-group">
+        <label>イベント名</label>
+        <input type="text" id="new-event-name" placeholder="例：6月飲み会" maxlength="40">
+      </div>
+      <div class="form-group">
+        <label>メンバー</label>
+        <div class="member-input-row">
+          <input type="text" id="new-member-input" placeholder="名前を入力" maxlength="20"
+            onkeydown="if(event.key==='Enter')addNewMember()">
+          <button onclick="addNewMember()">追加</button>
+        </div>
+        <div id="new-member-chips" class="member-chips"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-new-event')">キャンセル</button>
+        <button class="btn btn-primary" onclick="createEvent()">作成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル: 支出追加 -->
+  <div id="modal-expense" class="modal-overlay" onclick="closeModalOutside(event,'modal-expense')">
+    <div class="modal">
+      <p class="modal-title">支出を追加</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>内容</label>
+          <input type="text" id="exp-desc" placeholder="例：飲み代" maxlength="30">
+        </div>
+        <div class="form-group" style="max-width:140px">
+          <label>金額（円）</label>
+          <input type="number" id="exp-amount" placeholder="0" min="1" inputmode="numeric">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>支払った人</label>
+        <select id="exp-paidby"></select>
+      </div>
+      <div class="form-group">
+        <label>割り勘するメンバー（複数選択可）</label>
+        <div id="exp-split-chips" class="member-chips"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-expense')">キャンセル</button>
+        <button class="btn btn-primary" onclick="addExpense()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// データ管理
+// ─────────────────────────────────────────
+const STORAGE_KEY = 'warikai_v1';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { events: [] }; }
+  catch { return { events: [] }; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ─────────────────────────────────────────
+// ページ遷移
+// ─────────────────────────────────────────
+let currentEventId = null;
+let currentTab = 'expenses';
+
+function showList() {
+  document.getElementById('page-list').classList.add('active');
+  document.getElementById('page-detail').classList.remove('active');
+  renderEventList();
+}
+
+function showDetail(eventId) {
+  currentEventId = eventId;
+  currentTab = 'expenses';
+  document.getElementById('page-list').classList.remove('active');
+  document.getElementById('page-detail').classList.add('active');
+  switchTab('expenses');
+  renderDetail();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-expenses').classList.toggle('active', tab === 'expenses');
+  document.getElementById('tab-settlement').classList.toggle('active', tab === 'settlement');
+  document.getElementById('tab-content-expenses').style.display = tab === 'expenses' ? '' : 'none';
+  document.getElementById('tab-content-settlement').style.display = tab === 'settlement' ? '' : 'none';
+  document.getElementById('add-expense-fab').style.display = tab === 'expenses' ? '' : 'none';
+  if (tab === 'settlement') renderSettlement();
+}
+
+// ─────────────────────────────────────────
+// イベント一覧
+// ─────────────────────────────────────────
+function renderEventList() {
+  const data = loadData();
+  const el = document.getElementById('event-list');
+
+  if (data.events.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      イベントがまだありません。<br>
+      ＋ボタンから作成しましょう！
+    </div>`;
+    return;
+  }
+
+  // 新しい順
+  el.innerHTML = [...data.events].reverse().map(ev => {
+    const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
+    const date = new Date(ev.createdAt).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
+    return `<div class="event-item" onclick="showDetail('${ev.id}')">
+      <div class="event-name">${esc(ev.name)}</div>
+      <div class="event-meta">
+        <span>👤 ${ev.members.length}人</span>
+        <span>💴 ${fmt(total)}</span>
+        <span>📅 ${date}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// イベント詳細
+// ─────────────────────────────────────────
+function renderDetail() {
+  const ev = getEvent();
+  if (!ev) return showList();
+
+  document.getElementById('detail-title').textContent = ev.name;
+
+  // メンバーチップ
+  document.getElementById('member-area').innerHTML =
+    ev.members.map(m => `<span class="chip">${esc(m)}</span>`).join('');
+
+  // 合計
+  const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
+  document.getElementById('total-area').innerHTML = total > 0
+    ? `<div class="total-badge"><span class="total-label">合計支出</span><span class="total-value">${fmt(total)}</span></div>`
+    : '';
+
+  // 支出リスト
+  const expEl = document.getElementById('expense-list');
+  if (ev.expenses.length === 0) {
+    expEl.innerHTML = `<div class="empty-state" style="padding:2rem 0">支出がまだありません。<br>＋ボタンで追加しましょう！</div>`;
+    return;
+  }
+
+  expEl.innerHTML = [...ev.expenses].reverse().map(exp => {
+    const share = Math.round(exp.amount / exp.splitWith.length);
+    return `<div class="expense-item">
+      <div class="card-row">
+        <div>
+          <div class="expense-desc">${esc(exp.desc || '支出')}</div>
+          <div class="expense-meta">${esc(exp.paidBy)} が支払い</div>
+          <div class="expense-amount">${fmt(exp.amount)}</div>
+          <div class="expense-split">割り勘: ${exp.splitWith.map(esc).join('・')} (1人 ${fmt(share)})</div>
+        </div>
+        <button class="delete-btn" onclick="deleteExpense('${exp.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// 精算計算
+// ─────────────────────────────────────────
+function calcSettlement(ev) {
+  const balance = {};
+  ev.members.forEach(m => balance[m] = 0);
+
+  ev.expenses.forEach(exp => {
+    const share = exp.amount / exp.splitWith.length;
+    if (balance[exp.paidBy] !== undefined) balance[exp.paidBy] += exp.amount;
+    exp.splitWith.forEach(m => { if (balance[m] !== undefined) balance[m] -= share; });
+  });
+
+  const creditors = [];
+  const debtors = [];
+  Object.entries(balance).forEach(([name, amt]) => {
+    if (amt > 0.5)  creditors.push({ name, amt });
+    if (amt < -0.5) debtors.push({ name, amt: -amt });
+  });
+
+  const transfers = [];
+  let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const d = debtors[i], c = creditors[j];
+    const amt = Math.min(d.amt, c.amt);
+    transfers.push({ from: d.name, to: c.name, amt: Math.round(amt) });
+    d.amt -= amt; c.amt -= amt;
+    if (d.amt < 0.5) i++;
+    if (c.amt < 0.5) j++;
+  }
+
+  return { balance, transfers };
+}
+
+function renderSettlement() {
+  const ev = getEvent();
+  const { balance, transfers } = calcSettlement(ev);
+
+  // 残高一覧
+  document.getElementById('balance-list').innerHTML =
+    Object.entries(balance).map(([name, amt]) => {
+      const cls = amt > 0 ? 'balance-pos' : amt < 0 ? 'balance-neg' : 'balance-zero';
+      const sign = amt > 0 ? '+' : '';
+      return `<div class="balance-item">
+        <span class="balance-name">${esc(name)}</span>
+        <span class="balance-amount ${cls}">${sign}${fmt(Math.round(amt))}</span>
+      </div>`;
+    }).join('');
+
+  // 支払い一覧
+  const tEl = document.getElementById('transfer-list');
+  if (transfers.length === 0) {
+    tEl.innerHTML = ev.expenses.length === 0
+      ? `<p style="color:var(--text3);font-size:0.9rem">支出を追加すると精算が表示されます</p>`
+      : `<div class="transfer-item"><span style="color:var(--green)">✓ 全員清算済みです！</span></div>`;
+    return;
+  }
+
+  tEl.innerHTML = transfers.map(t =>
+    `<div class="transfer-item">
+      <span class="transfer-from">${esc(t.from)}</span>
+      <span class="transfer-arrow">→</span>
+      <span class="transfer-to">${esc(t.to)}</span>
+      <span class="transfer-amount">${fmt(t.amt)}</span>
+    </div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────
+// 新規イベント作成
+// ─────────────────────────────────────────
+let newMembers = [];
+
+function openNewEventModal() {
+  newMembers = [];
+  document.getElementById('new-event-name').value = '';
+  document.getElementById('new-member-input').value = '';
+  document.getElementById('new-member-chips').innerHTML = '';
+  openModal('modal-new-event');
+  setTimeout(() => document.getElementById('new-event-name').focus(), 300);
+}
+
+function addNewMember() {
+  const input = document.getElementById('new-member-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (newMembers.includes(name)) { showToast('同じ名前が既にいます'); return; }
+  newMembers.push(name);
+  input.value = '';
+  renderNewMemberChips();
+  input.focus();
+}
+
+function removeNewMember(name) {
+  newMembers = newMembers.filter(m => m !== name);
+  renderNewMemberChips();
+}
+
+function renderNewMemberChips() {
+  document.getElementById('new-member-chips').innerHTML =
+    newMembers.map(m =>
+      `<span class="chip">${esc(m)}<span class="remove" onclick="removeNewMember('${esc(m)}')">✕</span></span>`
+    ).join('');
+}
+
+function createEvent() {
+  // 入力欄に未確定の名前があれば自動追加
+  const pendingName = document.getElementById('new-member-input').value.trim();
+  if (pendingName) addNewMember();
+
+  const name = document.getElementById('new-event-name').value.trim();
+  if (!name) { showToast('イベント名を入力してください'); return; }
+  if (newMembers.length < 2) { showToast('メンバーを2人以上追加してください'); return; }
+
+  const data = loadData();
+  const ev = { id: genId(), name, members: [...newMembers], expenses: [], createdAt: Date.now() };
+  data.events.push(ev);
+  saveData(data);
+  closeModal('modal-new-event');
+  showDetail(ev.id);
+}
+
+// ─────────────────────────────────────────
+// 支出追加
+// ─────────────────────────────────────────
+let splitSelection = [];
+
+function openExpenseModal() {
+  const ev = getEvent();
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-amount').value = '';
+
+  const sel = document.getElementById('exp-paidby');
+  sel.innerHTML = ev.members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+  splitSelection = [...ev.members];
+  renderSplitChips();
+  openModal('modal-expense');
+  setTimeout(() => document.getElementById('exp-desc').focus(), 300);
+}
+
+function renderSplitChips() {
+  const ev = getEvent();
+  document.getElementById('exp-split-chips').innerHTML =
+    ev.members.map(m => {
+      const sel = splitSelection.includes(m);
+      return `<span class="chip ${sel ? 'selected' : ''}" onclick="toggleSplit('${esc(m)}')">${esc(m)}</span>`;
+    }).join('');
+}
+
+function toggleSplit(name) {
+  if (splitSelection.includes(name)) {
+    if (splitSelection.length === 1) { showToast('最低1人は選択してください'); return; }
+    splitSelection = splitSelection.filter(m => m !== name);
+  } else {
+    splitSelection.push(name);
+  }
+  renderSplitChips();
+}
+
+function addExpense() {
+  const desc   = document.getElementById('exp-desc').value.trim();
+  const amount = parseInt(document.getElementById('exp-amount').value, 10);
+  const paidBy = document.getElementById('exp-paidby').value;
+
+  if (!desc)           { showToast('内容を入力してください'); return; }
+  if (!amount || amount <= 0) { showToast('金額を入力してください'); return; }
+  if (splitSelection.length === 0) { showToast('割り勘するメンバーを選択してください'); return; }
+
+  const data = loadData();
+  const ev = data.events.find(e => e.id === currentEventId);
+  ev.expenses.push({ id: genId(), desc, amount, paidBy, splitWith: [...splitSelection] });
+  saveData(data);
+  closeModal('modal-expense');
+  renderDetail();
+}
+
+// ─────────────────────────────────────────
+// 削除
+// ─────────────────────────────────────────
+function deleteExpense(expId) {
+  if (!confirm('この支出を削除しますか？')) return;
+  const data = loadData();
+  const ev = data.events.find(e => e.id === currentEventId);
+  ev.expenses = ev.expenses.filter(e => e.id !== expId);
+  saveData(data);
+  renderDetail();
+}
+
+function confirmDeleteEvent() {
+  if (!confirm('このイベントを削除しますか？\n（この操作は元に戻せません）')) return;
+  const data = loadData();
+  data.events = data.events.filter(e => e.id !== currentEventId);
+  saveData(data);
+  showList();
+}
+
+// ─────────────────────────────────────────
+// モーダル
+// ─────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
+
+// ─────────────────────────────────────────
+// ユーティリティ
+// ─────────────────────────────────────────
+function getEvent() {
+  return loadData().events.find(e => e.id === currentEventId) || null;
+}
+
+function fmt(n) {
+  return '¥' + Math.abs(n).toLocaleString('ja-JP');
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─────────────────────────────────────────
+// 初期化
+// ─────────────────────────────────────────
+renderEventList();
+</script>
+</body>
+</html>

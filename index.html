@@ -258,20 +258,20 @@
     <main>
       <div id="event-list"></div>
     </main>
-    <button class="fab" onclick="openNewEventModal()">＋</button>
+    <button class="fab">＋</button>
   </div>
 
   <!-- ページ2: イベント詳細 -->
   <div id="page-detail" class="page">
     <header>
-      <button class="back-btn" onclick="showList()">‹ 戻る</button>
+      <button class="back-btn">‹ 戻る</button>
       <h1 id="detail-title">イベント</h1>
-      <button class="header-action" onclick="confirmDeleteEvent()">削除</button>
+      <button class="header-action">削除</button>
     </header>
     <main>
       <div class="tabs">
-        <button class="tab-btn active" id="tab-expenses" onclick="switchTab('expenses')">支出</button>
-        <button class="tab-btn" id="tab-settlement" onclick="switchTab('settlement')">精算</button>
+        <button class="tab-btn active" id="tab-expenses">支出</button>
+        <button class="tab-btn" id="tab-settlement">精算</button>
       </div>
 
       <!-- 支出タブ -->
@@ -291,11 +291,11 @@
         <div id="transfer-list"></div>
       </div>
     </main>
-    <button class="fab" id="add-expense-fab" onclick="openExpenseModal()">＋</button>
+    <button class="fab" id="add-expense-fab">＋</button>
   </div>
 
   <!-- モーダル: 新規イベント -->
-  <div id="modal-new-event" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-event')">
+  <div id="modal-new-event" class="modal-overlay">
     <div class="modal">
       <p class="modal-title">新しいイベント</p>
       <div class="form-group">
@@ -305,22 +305,21 @@
       <div class="form-group">
         <label>メンバー（2人以上）</label>
         <div class="member-input-row">
-          <input type="text" id="new-member-input" placeholder="名前を入力してEnterか追加を押す" maxlength="20"
-            onkeydown="if(event.key==='Enter')addNewMember()">
-          <button onclick="addNewMember()">追加</button>
+          <input type="text" id="new-member-input" placeholder="名前を入力してEnterか追加を押す" maxlength="20">
+          <button id="btn-add-member" type="button">追加</button>
         </div>
         <div id="new-member-chips" class="member-chips"></div>
         <p id="new-event-error" style="color:var(--red);font-size:0.82rem;margin-top:0.4rem;display:none"></p>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeModal('modal-new-event')">キャンセル</button>
-        <button class="btn btn-primary" onclick="createEvent()">作成</button>
+        <button id="btn-cancel-event" type="button" class="btn btn-ghost">キャンセル</button>
+        <button id="btn-create-event" type="button" class="btn btn-primary">作成</button>
       </div>
     </div>
   </div>
 
   <!-- モーダル: 支出追加 -->
-  <div id="modal-expense" class="modal-overlay" onclick="closeModalOutside(event,'modal-expense')">
+  <div id="modal-expense" class="modal-overlay">
     <div class="modal">
       <p class="modal-title">支出を追加</p>
       <div class="form-row">
@@ -342,8 +341,8 @@
         <div id="exp-split-chips" class="member-chips"></div>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeModal('modal-expense')">キャンセル</button>
-        <button class="btn btn-primary" onclick="addExpense()">追加</button>
+        <button id="btn-cancel-expense" type="button" class="btn btn-ghost">キャンセル</button>
+        <button id="btn-add-expense" type="button" class="btn btn-primary">追加</button>
       </div>
     </div>
   </div>
@@ -709,9 +708,42 @@ function showToast(msg) {
 }
 
 // ─────────────────────────────────────────
+// イベントリスナー登録（onclick属性を使わない）
+// ─────────────────────────────────────────
+function initListeners() {
+  // FAB（イベント一覧）
+  document.querySelector('#page-list .fab').addEventListener('click', openNewEventModal);
+  // FAB（イベント詳細）
+  document.getElementById('add-expense-fab').addEventListener('click', openExpenseModal);
+
+  // 新規イベントモーダル
+  document.getElementById('btn-add-member').addEventListener('click', addNewMember);
+  document.getElementById('new-member-input').addEventListener('keydown', e => { if (e.key === 'Enter') addNewMember(); });
+  document.getElementById('btn-cancel-event').addEventListener('click', () => closeModal('modal-new-event'));
+  document.getElementById('btn-create-event').addEventListener('click', createEvent);
+  document.getElementById('modal-new-event').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('modal-new-event'); });
+
+  // 支出追加モーダル
+  document.getElementById('btn-cancel-expense').addEventListener('click', () => closeModal('modal-expense'));
+  document.getElementById('btn-add-expense').addEventListener('click', addExpense);
+  document.getElementById('modal-expense').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('modal-expense'); });
+
+  // 戻るボタン
+  document.querySelector('.back-btn').addEventListener('click', showList);
+
+  // タブ
+  document.getElementById('tab-expenses').addEventListener('click', () => switchTab('expenses'));
+  document.getElementById('tab-settlement').addEventListener('click', () => switchTab('settlement'));
+
+  // ヘッダー削除ボタン
+  document.querySelector('.header-action').addEventListener('click', confirmDeleteEvent);
+}
+
+// ─────────────────────────────────────────
 // 初期化
 // ─────────────────────────────────────────
 renderEventList();
+initListeners();
 </script>
 </body>
 </html>

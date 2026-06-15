@@ -802,7 +802,7 @@ function initListeners() {
   // FAB（イベント一覧）
   document.querySelector('#page-list .fab').addEventListener('click', openNewEventModal);
   // FAB（イベント詳細）
-  document.getElementById('add-expense-fab').addEventListener('click', openExpenseModal);
+  document.getElementById('add-expense-fab').addEventListener('click', () => openExpenseModal());
 
   // 新規イベントモーダル
   document.getElementById('btn-add-member').addEventListener('click', addNewMember);

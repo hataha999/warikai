@@ -303,13 +303,14 @@
         <input type="text" id="new-event-name" placeholder="例：6月飲み会" maxlength="40">
       </div>
       <div class="form-group">
-        <label>メンバー</label>
+        <label>メンバー（2人以上）</label>
         <div class="member-input-row">
-          <input type="text" id="new-member-input" placeholder="名前を入力" maxlength="20"
+          <input type="text" id="new-member-input" placeholder="名前を入力してEnterか追加を押す" maxlength="20"
             onkeydown="if(event.key==='Enter')addNewMember()">
           <button onclick="addNewMember()">追加</button>
         </div>
         <div id="new-member-chips" class="member-chips"></div>
+        <p id="new-event-error" style="color:var(--red);font-size:0.82rem;margin-top:0.4rem;display:none"></p>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-new-event')">キャンセル</button>
@@ -577,14 +578,21 @@ function renderNewMemberChips() {
     ).join('');
 }
 
+function showEventError(msg) {
+  const el = document.getElementById('new-event-error');
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+
 function createEvent() {
   // 入力欄に未確定の名前があれば自動追加
   const pendingName = document.getElementById('new-member-input').value.trim();
   if (pendingName) addNewMember();
 
   const name = document.getElementById('new-event-name').value.trim();
-  if (!name) { showToast('イベント名を入力してください'); return; }
-  if (newMembers.length < 2) { showToast('メンバーを2人以上追加してください'); return; }
+  if (!name) { showEventError('イベント名を入力してください'); return; }
+  if (newMembers.length < 2) { showEventError('メンバーを2人以上追加してください'); return; }
+  showEventError('');
 
   const data = loadData();
   const ev = { id: genId(), name, members: [...newMembers], expenses: [], createdAt: Date.now() };

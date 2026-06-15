@@ -256,6 +256,35 @@
     .total-label { font-size: 0.85rem; color: var(--text2); }
     .total-value { font-size: 1.2rem; font-weight: 700; color: var(--yellow); }
 
+    /* ── 各自支払い内訳 ── */
+    .breakdown-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.875rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .breakdown-row {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .breakdown-row:last-child { margin-bottom: 0; }
+    .breakdown-name {
+      width: 3.5rem; font-size: 0.8rem; font-weight: 600;
+      color: var(--text2); flex-shrink: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .breakdown-bar-wrap {
+      flex: 1; height: 6px; background: var(--border);
+      border-radius: 9999px; overflow: hidden;
+    }
+    .breakdown-bar {
+      height: 100%; background: var(--accent);
+      border-radius: 9999px; transition: width 0.3s;
+    }
+    .breakdown-amount {
+      font-size: 0.8rem; font-weight: 700; color: var(--text);
+      flex-shrink: 0; text-align: right; min-width: 4rem;
+    }
+
     /* スクロールバー非表示 */
     ::-webkit-scrollbar { display: none; }
   </style>
@@ -466,11 +495,33 @@ function renderDetail() {
     ev.members.map(m => `<span class="chip">${esc(m)}</span>`).join('') +
     `<button class="add-member-chip">＋ 追加</button>`;
 
-  // 合計
+  // 合計 & 各自支払い内訳
   const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
-  document.getElementById('total-area').innerHTML = total > 0
-    ? `<div class="total-badge"><span class="total-label">合計支出</span><span class="total-value">${fmt(total)}</span></div>`
-    : '';
+  if (total > 0) {
+    const personTotals = {};
+    ev.members.forEach(m => personTotals[m] = 0);
+    ev.expenses.forEach(exp => { if (personTotals[exp.paidBy] !== undefined) personTotals[exp.paidBy] += exp.amount; });
+    const maxPaid = Math.max(...Object.values(personTotals), 1);
+    const rows = Object.entries(personTotals)
+      .filter(([, amt]) => amt > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amt]) => {
+        const pct = Math.round(amt / maxPaid * 100);
+        return `<div class="breakdown-row">
+          <span class="breakdown-name">${esc(name)}</span>
+          <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${pct}%"></div></div>
+          <span class="breakdown-amount">${fmt(amt)}</span>
+        </div>`;
+      }).join('');
+    document.getElementById('total-area').innerHTML =
+      `<div class="total-badge"><span class="total-label">合計支出</span><span class="total-value">${fmt(total)}</span></div>
+       <div class="breakdown-card">
+         <p class="section-title" style="margin-bottom:0.6rem">各自の支払い額</p>
+         ${rows}
+       </div>`;
+  } else {
+    document.getElementById('total-area').innerHTML = '';
+  }
 
   // 支出リスト
   const expEl = document.getElementById('expense-list');

@@ -141,6 +141,16 @@
       background: none; border: none; color: var(--text3);
       cursor: pointer; font-size: 1rem; padding: 0.25rem;
     }
+    .edit-btn {
+      background: none; border: none; color: var(--accent);
+      cursor: pointer; font-size: 0.95rem; padding: 0.25rem;
+    }
+    .add-member-chip {
+      padding: 0.35rem 0.75rem; border-radius: 9999px;
+      font-size: 0.8rem; font-weight: 600;
+      background: none; border: 1.5px dashed var(--border);
+      color: var(--text3); cursor: pointer;
+    }
 
     /* ── メンバーチップ ── */
     .member-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
@@ -268,7 +278,10 @@
   <div id="page-detail" class="page">
     <header>
       <button class="back-btn">‹ 戻る</button>
-      <h1 id="detail-title">イベント</h1>
+      <div style="flex:1;display:flex;align-items:center;gap:0.3rem;min-width:0">
+        <h1 id="detail-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">イベント</h1>
+        <button id="btn-edit-name" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.9rem;flex-shrink:0;padding:0.2rem">✏️</button>
+      </div>
       <button class="header-action">削除</button>
     </header>
     <main>
@@ -280,6 +293,12 @@
       <!-- 支出タブ -->
       <div id="tab-content-expenses">
         <div id="member-area" class="member-chips"></div>
+        <div id="inline-add-member" style="display:none;margin-bottom:0.75rem">
+          <div class="member-input-row">
+            <input type="text" id="inline-member-input" placeholder="名前を入力" maxlength="20">
+            <button id="btn-inline-add-member" type="button">追加</button>
+          </div>
+        </div>
         <div id="total-area"></div>
         <div id="expense-list"></div>
       </div>
@@ -324,7 +343,7 @@
   <!-- モーダル: 支出追加 -->
   <div id="modal-expense" class="modal-overlay">
     <div class="modal">
-      <p class="modal-title">支出を追加</p>
+      <p class="modal-title" id="modal-expense-title">支出を追加</p>
       <div class="form-row">
         <div class="form-group">
           <label>内容</label>
@@ -442,9 +461,10 @@ function renderDetail() {
 
   document.getElementById('detail-title').textContent = ev.name;
 
-  // メンバーチップ
+  // メンバーチップ（＋追加ボタン付き）
   document.getElementById('member-area').innerHTML =
-    ev.members.map(m => `<span class="chip">${esc(m)}</span>`).join('');
+    ev.members.map(m => `<span class="chip">${esc(m)}</span>`).join('') +
+    `<button class="add-member-chip" onclick="showAddMemberInput()">＋ 追加</button>`;
 
   // 合計
   const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
@@ -469,7 +489,10 @@ function renderDetail() {
           <div class="expense-amount">${fmt(exp.amount)}</div>
           <div class="expense-split">割り勘: ${exp.splitWith.map(esc).join('・')} (1人 ${fmt(share)})</div>
         </div>
-        <button class="delete-btn" onclick="deleteExpense('${exp.id}')">🗑</button>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:center">
+          <button class="edit-btn" onclick="openExpenseModal('${exp.id}')">✏️</button>
+          <button class="delete-btn" onclick="deleteExpense('${exp.id}')">🗑</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -605,19 +628,34 @@ function createEvent() {
 }
 
 // ─────────────────────────────────────────
-// 支出追加
+// 支出追加・編集
 // ─────────────────────────────────────────
 let splitSelection = [];
+let editingExpenseId = null;
 
-function openExpenseModal() {
+function openExpenseModal(expId = null) {
+  editingExpenseId = expId;
   const ev = getEvent();
-  document.getElementById('exp-desc').value = '';
-  document.getElementById('exp-amount').value = '';
 
   const sel = document.getElementById('exp-paidby');
   sel.innerHTML = ev.members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
 
-  splitSelection = [...ev.members];
+  if (expId) {
+    const exp = ev.expenses.find(e => e.id === expId);
+    document.getElementById('exp-desc').value = exp.desc;
+    document.getElementById('exp-amount').value = exp.amount;
+    sel.value = exp.paidBy;
+    splitSelection = [...exp.splitWith];
+    document.getElementById('modal-expense-title').textContent = '支出を編集';
+    document.getElementById('btn-add-expense').textContent = '保存';
+  } else {
+    document.getElementById('exp-desc').value = '';
+    document.getElementById('exp-amount').value = '';
+    splitSelection = [...ev.members];
+    document.getElementById('modal-expense-title').textContent = '支出を追加';
+    document.getElementById('btn-add-expense').textContent = '追加';
+  }
+
   renderSplitChips();
   openModal('modal-expense');
   setTimeout(() => document.getElementById('exp-desc').focus(), 300);
@@ -653,10 +691,57 @@ function addExpense() {
 
   const data = loadData();
   const ev = data.events.find(e => e.id === currentEventId);
-  ev.expenses.push({ id: genId(), desc, amount, paidBy, splitWith: [...splitSelection] });
+
+  if (editingExpenseId) {
+    const exp = ev.expenses.find(e => e.id === editingExpenseId);
+    exp.desc = desc; exp.amount = amount; exp.paidBy = paidBy; exp.splitWith = [...splitSelection];
+  } else {
+    ev.expenses.push({ id: genId(), desc, amount, paidBy, splitWith: [...splitSelection] });
+  }
+
   saveData(data);
   closeModal('modal-expense');
   renderDetail();
+}
+
+// ─────────────────────────────────────────
+// イベント名編集
+// ─────────────────────────────────────────
+function editEventName() {
+  const ev = getEvent();
+  const newName = prompt('イベント名を変更', ev.name);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) { showToast('イベント名を入力してください'); return; }
+  const data = loadData();
+  data.events.find(e => e.id === currentEventId).name = trimmed;
+  saveData(data);
+  document.getElementById('detail-title').textContent = trimmed;
+}
+
+// ─────────────────────────────────────────
+// メンバー追加（既存イベント）
+// ─────────────────────────────────────────
+function showAddMemberInput() {
+  const area = document.getElementById('inline-add-member');
+  area.style.display = '';
+  const input = document.getElementById('inline-member-input');
+  input.value = '';
+  input.focus();
+}
+
+function addMemberToEvent() {
+  const input = document.getElementById('inline-member-input');
+  const name = input.value.trim();
+  if (!name) return;
+  const data = loadData();
+  const ev = data.events.find(e => e.id === currentEventId);
+  if (ev.members.includes(name)) { showToast('同じ名前が既にいます'); return; }
+  ev.members.push(name);
+  saveData(data);
+  document.getElementById('inline-add-member').style.display = 'none';
+  renderDetail();
+  showToast(`${name} を追加しました`);
 }
 
 // ─────────────────────────────────────────
@@ -730,6 +815,13 @@ function initListeners() {
   document.getElementById('btn-cancel-expense').addEventListener('click', () => closeModal('modal-expense'));
   document.getElementById('btn-add-expense').addEventListener('click', addExpense);
   document.getElementById('modal-expense').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('modal-expense'); });
+
+  // イベント名編集
+  document.getElementById('btn-edit-name').addEventListener('click', editEventName);
+
+  // メンバー追加（既存イベント）
+  document.getElementById('btn-inline-add-member').addEventListener('click', addMemberToEvent);
+  document.getElementById('inline-member-input').addEventListener('keydown', e => { if (e.key === 'Enter') addMemberToEvent(); });
 
   // 戻るボタン
   document.querySelector('.back-btn').addEventListener('click', showList);

@@ -441,7 +441,7 @@ function renderEventList() {
   el.innerHTML = [...data.events].reverse().map(ev => {
     const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
     const date = new Date(ev.createdAt).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
-    return `<div class="event-item" onclick="showDetail('${ev.id}')">
+    return `<div class="event-item" data-id="${ev.id}">
       <div class="event-name">${esc(ev.name)}</div>
       <div class="event-meta">
         <span>👤 ${ev.members.length}人</span>
@@ -464,7 +464,7 @@ function renderDetail() {
   // メンバーチップ（＋追加ボタン付き）
   document.getElementById('member-area').innerHTML =
     ev.members.map(m => `<span class="chip">${esc(m)}</span>`).join('') +
-    `<button class="add-member-chip" onclick="showAddMemberInput()">＋ 追加</button>`;
+    `<button class="add-member-chip">＋ 追加</button>`;
 
   // 合計
   const total = ev.expenses.reduce((s, e) => s + e.amount, 0);
@@ -490,8 +490,8 @@ function renderDetail() {
           <div class="expense-split">割り勘: ${exp.splitWith.map(esc).join('・')} (1人 ${fmt(share)})</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:center">
-          <button class="edit-btn" onclick="openExpenseModal('${exp.id}')">✏️</button>
-          <button class="delete-btn" onclick="deleteExpense('${exp.id}')">🗑</button>
+          <button class="edit-btn" data-id="${exp.id}">✏️</button>
+          <button class="delete-btn" data-id="${exp.id}">🗑</button>
         </div>
       </div>
     </div>`;
@@ -599,7 +599,7 @@ function removeNewMember(name) {
 function renderNewMemberChips() {
   document.getElementById('new-member-chips').innerHTML =
     newMembers.map(m =>
-      `<span class="chip">${esc(m)}<span class="remove" onclick="removeNewMember('${esc(m)}')">✕</span></span>`
+      `<span class="chip">${esc(m)}<span class="remove" data-name="${esc(m)}">✕</span></span>`
     ).join('');
 }
 
@@ -666,7 +666,7 @@ function renderSplitChips() {
   document.getElementById('exp-split-chips').innerHTML =
     ev.members.map(m => {
       const sel = splitSelection.includes(m);
-      return `<span class="chip ${sel ? 'selected' : ''}" onclick="toggleSplit('${esc(m)}')">${esc(m)}</span>`;
+      return `<span class="chip ${sel ? 'selected' : ''}" data-name="${esc(m)}">${esc(m)}</span>`;
     }).join('');
 }
 
@@ -816,6 +816,37 @@ function initListeners() {
   document.getElementById('btn-add-expense').addEventListener('click', addExpense);
   document.getElementById('modal-expense').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('modal-expense'); });
 
+  // イベント一覧のタップ（委譲）
+  document.getElementById('event-list').addEventListener('click', e => {
+    const item = e.target.closest('.event-item');
+    if (item) showDetail(item.dataset.id);
+  });
+
+  // 支出の編集・削除ボタン（委譲）
+  document.getElementById('expense-list').addEventListener('click', e => {
+    const editBtn = e.target.closest('.edit-btn');
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (editBtn) openExpenseModal(editBtn.dataset.id);
+    if (deleteBtn) deleteExpense(deleteBtn.dataset.id);
+  });
+
+  // メンバー削除チップ（委譲）
+  document.getElementById('new-member-chips').addEventListener('click', e => {
+    const remove = e.target.closest('.remove');
+    if (remove) removeNewMember(remove.dataset.name);
+  });
+
+  // 割り勘メンバー選択チップ（委譲）
+  document.getElementById('exp-split-chips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (chip && chip.dataset.name) toggleSplit(chip.dataset.name);
+  });
+
+  // メンバー追加ボタン（委譲）
+  document.getElementById('member-area').addEventListener('click', e => {
+    if (e.target.closest('.add-member-chip')) showAddMemberInput();
+  });
+
   // イベント名編集
   document.getElementById('btn-edit-name').addEventListener('click', editEventName);
 
@@ -842,11 +873,13 @@ initListeners();
 
 // Service Worker 登録（自動アップデート）
 if ('serviceWorker' in navigator) {
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.register('./sw.js');
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController) window.location.reload();
-  });
+  try {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js');
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) window.location.reload();
+    });
+  } catch(e) {}
 }
 </script>
 </body>

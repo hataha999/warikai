@@ -839,6 +839,15 @@ function initListeners() {
 // ─────────────────────────────────────────
 renderEventList();
 initListeners();
+
+// Service Worker 登録（自動アップデート）
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('./sw.js');
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) window.location.reload();
+  });
+}
 </script>
 </body>
 </html>

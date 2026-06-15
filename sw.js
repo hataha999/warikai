@@ -1,13 +1,8 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `warikai-${CACHE_VERSION}`;
-const ASSETS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', event => {
@@ -18,14 +13,15 @@ self.addEventListener('activate', event => {
   );
 });
 
+// ネットワーク優先 → 失敗時はキャッシュにフォールバック（オフライン対応）
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(response => {
+    fetch(event.request)
+      .then(response => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
